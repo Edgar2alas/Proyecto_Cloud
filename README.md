@@ -59,7 +59,7 @@ Y cuentas en:
 ### 1.1 Crear proyecto en Supabase
 1. Ve a https://supabase.com → **New Project**
 2. Nombre: `waste-detection-lapaz`
-3. Contraseña de base de datos: guárdala en algún lado
+3. Contraseña de base de datos: guárdala en algún lado "m_tLM595%zX#dDS"
 4. Región: la más cercana (ej. South America)
 5. Espera ~2 minutos a que se cree
 
@@ -72,9 +72,9 @@ Y cuentas en:
 ### 1.3 Obtener las credenciales
 1. Ve a **Settings** → **API**
 2. Copia estos valores:
-   - **Project URL** → algo como `https://abcdefgh.supabase.co`
-   - **anon public** key → empieza con `eyJ...`
-   - **service_role** key → empieza con `eyJ...` (¡mantenla secreta!)
+   - **Project URL** → algo como `https://abcdefgh.supabase.co` 'https://hdvrgmvvblquplyhegkv.supabase.co/rest/v1/'
+   - **anon public** key → empieza con `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkdnJnbXZ2YmxxdXBseWhlZ2t2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxNzg4NDYsImV4cCI6MjA5Mjc1NDg0Nn0.M2627CZX9l61uazmNxFQUv1YHovmB_dQ-9Y1I7ekhKI`
+   - **service_role** key → empieza con `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkdnJnbXZ2YmxxdXBseWhlZ2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzE3ODg0NiwiZXhwIjoyMDkyNzU0ODQ2fQ.mH7zmF5eCAotx6CokZfaNCbOQafr-7_gA7pTt35uaTI` (¡mantenla secreta!)
 
 ---
 

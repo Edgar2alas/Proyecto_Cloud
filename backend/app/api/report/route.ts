@@ -14,6 +14,7 @@ const LA_PAZ_LOCATIONS = [
   { name: "Sopocachi", lat: -16.51, lng: -68.13 },
 ];
 
+
 export async function POST(request: NextRequest) {
   console.log("\n========================================");
   console.log("[BACKEND] Nueva solicitud de reporte recibida");
@@ -96,14 +97,14 @@ export async function POST(request: NextRequest) {
     let lat = parseFloat(latParam || "");
     let lng = parseFloat(lngParam || "");
 
-    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-      // Seleccionar ubicación aleatoria de La Paz para demo
-      const randomLocation =
-        LA_PAZ_LOCATIONS[Math.floor(Math.random() * LA_PAZ_LOCATIONS.length)];
-      lat = randomLocation.lat;
-      lng = randomLocation.lng;
-      console.log(`[GEOLOCACIÓN] Usando coordenadas demo: ${randomLocation.name} (${lat}, ${lng})`);
-    }
+  if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+    const randomLocation = LA_PAZ_LOCATIONS[Math.floor(Math.random() * LA_PAZ_LOCATIONS.length)];
+    lat = randomLocation.lat;
+    lng = randomLocation.lng;
+    console.log(`[GEOLOCACIÓN] ⚠️ Sin coordenadas del frontend — usando demo: ${randomLocation.name}`);
+  } else {
+    console.log(`[GEOLOCACIÓN] ✓ Coordenadas reales recibidas del usuario: ${lat}, ${lng}`);
+  }
 
     // 7. Insertar en Supabase
     console.log("[SUPABASE] Guardando incidencia...");

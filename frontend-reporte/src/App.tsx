@@ -1,6 +1,6 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 
-const BACKEND_URL = "http://localhost:3000";
+const BACKEND_URL = "";
 
 type PollutionLevel = "BAJO" | "MEDIO" | "ALTO" | "CRÍTICO";
 
@@ -36,6 +36,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ReportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [usingRealLocation, setUsingRealLocation] = useState<boolean | null>(null); // ← esta línea
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,51 +50,73 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async () => {
-    if (!selectedFile) {
-      setError("Por favor selecciona una imagen.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setResult(null);
+const handleSubmit = async () => {
+  if (!selectedFile) {
+    setError("Por favor selecciona una imagen.");
+    return;
+  }
 
-    try {
-      const formData = new FormData();
-      formData.append("image", selectedFile);
-      // Coordenadas opcionales (reales si el navegador las provee)
-      if (navigator.geolocation) {
-        await new Promise<void>((resolve) => {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              formData.append("lat", pos.coords.latitude.toString());
-              formData.append("lng", pos.coords.longitude.toString());
-              resolve();
-            },
-            () => resolve(), // Si falla, usa coordenadas demo
-            { timeout: 3000 }
-          );
-        });
+   console.log("¿geolocation existe?", "geolocation" in navigator);
+  navigator.geolocation.getCurrentPosition(
+    (pos) => console.log("GEO OK:", pos.coords.latitude, pos.coords.longitude),
+    (err) => console.error("GEO ERROR código:", err.code, err.message),
+  );
+  // ── FIN DIAGNÓSTICO ──
+  setLoading(true);
+  setError(null);
+  setResult(null);
+
+  try {
+    const formData = new FormData();
+    formData.append("image", selectedFile);
+
+    // Intentar obtener ubicación real con feedback claro
+    await new Promise<void>((resolve) => {
+      if (!navigator.geolocation) {
+        console.warn("[GEO] Geolocalización no disponible en este navegador.");
+        resolve();
+        return;
       }
 
-      const response = await fetch(`${BACKEND_URL}/api/report`, {
-        method: "POST",
-        body: formData,
-      });
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          formData.append("lat", pos.coords.latitude.toString());
+          formData.append("lng", pos.coords.longitude.toString());
+          setUsingRealLocation(true);   // ← añadir
+          resolve();
+        },
+        (err) => {
+          console.error(`[GEO] Código de error: ${err.code} — ${err.message}`);
+          // err.code: 1=PERMISSION_DENIED, 2=POSITION_ UNAVAILABLE, 3=TIMEOUT
+          setUsingRealLocation(false);
+          resolve();
+        },
+        {
+          timeout: 8000,        // Más tiempo para que el usuario acepte el permiso
+          maximumAge: 60000,    // Aceptar ubicación cacheada de hasta 1 minuto
+          enableHighAccuracy: false, // false = más rápido, suficiente para el mapa
+        }
+      );
+    });
 
-      const data = await response.json();
+    const response = await fetch(`${BACKEND_URL}/api/report`, {
+      method: "POST",
+      body: formData,
+    });
 
-      if (!response.ok) {
-        throw new Error(data.details || data.error || "Error del servidor");
-      }
+    const data = await response.json();
 
-      setResult(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      throw new Error(data.details || data.error || "Error del servidor");
     }
-  };
+
+    setResult(data);
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Error desconocido");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleReset = () => {
     setSelectedFile(null);
@@ -236,7 +259,7 @@ export default function App() {
                 icon="🔍"
               />
               <ResultItem
-                label="Coordenadas"
+                label={usingRealLocation ? "Tu ubicación real 📡" : "Ubicación demo (sin GPS)"}
                 value={`${result.coordinates.lat.toFixed(4)}, ${result.coordinates.lng.toFixed(4)}`}
                 icon="📍"
               />
