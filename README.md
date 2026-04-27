@@ -70,13 +70,7 @@ Y cuentas en:
 4. Verifica en **Table Editor** que se creó la tabla `incidents`
 
 ### 1.3 Obtener las credenciales
-1. Ve a **Settings** → **API**
-2. Copia estos valores:
-   - **Project URL** → algo como `https://abcdefgh.supabase.co` 'https://hdvrgmvvblquplyhegkv.supabase.co/rest/v1/'
-   - **anon public** key → empieza con `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkdnJnbXZ2YmxxdXBseWhlZ2t2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxNzg4NDYsImV4cCI6MjA5Mjc1NDg0Nn0.M2627CZX9l61uazmNxFQUv1YHovmB_dQ-9Y1I7ekhKI`
-   - **service_role** key → empieza con `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkdnJnbXZ2YmxxdXBseWhlZ2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzE3ODg0NiwiZXhwIjoyMDkyNzU0ODQ2fQ.mH7zmF5eCAotx6CokZfaNCbOQafr-7_gA7pTt35uaTI` (¡mantenla secreta!)
 
----
 
 ## 🔧 PASO 2 — Configurar Google Cloud Platform
 
