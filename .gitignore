@@ -3,3 +3,4 @@ node_modules/
 .next/
 gcp-credentials.json
 package-lock.json
+next-env.d.ts
