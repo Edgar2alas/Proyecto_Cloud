@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import { supabase } from "./supabase";
 import "leaflet/dist/leaflet.css";
@@ -32,11 +32,26 @@ interface ZoneStat {
 }
 
 const ZONES: Zone[] = [
-  { name: "El Prado",     lat: -16.495, lng: -68.133, radiusKm: 0.8 },
-  { name: "Villa Fátima", lat: -16.480, lng: -68.110, radiusKm: 0.8 },
-  { name: "Miraflores",   lat: -16.505, lng: -68.120, radiusKm: 0.8 },
-  { name: "San Pedro",    lat: -16.502, lng: -68.138, radiusKm: 0.8 },
-  { name: "Sopocachi",    lat: -16.510, lng: -68.130, radiusKm: 0.8 },
+  { name: "El Prado",          lat: -16.495, lng: -68.133, radiusKm: 0.7 },
+  { name: "Villa Fátima",      lat: -16.480, lng: -68.110, radiusKm: 0.7 },
+  { name: "Miraflores",        lat: -16.505, lng: -68.120, radiusKm: 0.7 },
+  { name: "San Pedro",         lat: -16.502, lng: -68.138, radiusKm: 0.7 },
+  { name: "Sopocachi",         lat: -16.510, lng: -68.130, radiusKm: 0.7 },
+  { name: "Obrajes",           lat: -16.540, lng: -68.120, radiusKm: 0.7 },
+  { name: "Calacoto",          lat: -16.550, lng: -68.100, radiusKm: 0.7 },
+  { name: "Achumani",          lat: -16.565, lng: -68.095, radiusKm: 0.7 },
+  { name: "Cota Cota",         lat: -16.558, lng: -68.108, radiusKm: 0.7 },
+  { name: "Tembladerani",      lat: -16.490, lng: -68.145, radiusKm: 0.7 },
+  { name: "Periférica",        lat: -16.470, lng: -68.130, radiusKm: 0.7 },
+  { name: "Alto Lima",         lat: -16.460, lng: -68.120, radiusKm: 0.7 },
+  { name: "Villa El Carmen",   lat: -16.475, lng: -68.150, radiusKm: 0.7 },
+  { name: "Cotahuma",          lat: -16.500, lng: -68.148, radiusKm: 0.7 },
+  { name: "Max Paredes",       lat: -16.488, lng: -68.138, radiusKm: 0.7 },
+  { name: "Centro",            lat: -16.497, lng: -68.143, radiusKm: 0.6 },
+  { name: "Garita de Lima",    lat: -16.482, lng: -68.143, radiusKm: 0.6 },
+  { name: "Kupini",            lat: -16.514, lng: -68.145, radiusKm: 0.7 },
+  { name: "Bolognia",          lat: -16.522, lng: -68.128, radiusKm: 0.7 },
+  { name: "San Jorge",         lat: -16.508, lng: -68.118, radiusKm: 0.6 },
 ];
 
 const LEVEL_COLOR: Record<string, string> = {
@@ -60,9 +75,8 @@ const ALERT_COLORS = {
   critical: { bg: "#7f1d1d", border: "#ef4444", text: "#fca5a5", label: "🚨 Crítico" },
 };
 
-const LA_PAZ_CENTER: [number, number] = [-16.5, -68.12];
+const LA_PAZ_CENTER: [number, number] = [-16.505, -68.128];
 
-// Distancia en km entre dos coordenadas
 function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -75,7 +89,6 @@ function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): num
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Nivel de alerta según cantidad y criticidad
 function getAlertLevel(incidents: Incident[]): ZoneStat["alertLevel"] {
   const critical = incidents.filter((i) => i.is_critical).length;
   const total = incidents.length;
@@ -93,18 +106,22 @@ function getMaxLevel(incidents: Incident[]): string {
   return "BAJO";
 }
 
-// Componente para los círculos de zona en el mapa
-function ZoneOverlay({ zoneStat }: { zoneStat: ZoneStat }) {
+// Componente interno que puede llamar useMap() y también recibir el flyTo target
+function MapController({ flyTarget }: { flyTarget: { lat: number; lng: number } | null }) {
   const map = useMap();
+  useEffect(() => {
+    if (flyTarget) {
+      map.flyTo([flyTarget.lat, flyTarget.lng], 15, { duration: 1.2 });
+    }
+  }, [flyTarget, map]);
+  return null;
+}
+
+function ZoneOverlay({ zoneStat }: { zoneStat: ZoneStat }) {
   const { zone, incidents, alertLevel } = zoneStat;
   const alert = ALERT_COLORS[alertLevel];
-
-  // Radio visual proporcional a la cantidad de incidencias
-  const baseRadius = 30;
-  const radius = Math.min(baseRadius + incidents.length * 8, 90);
-
+  const radius = Math.min(30 + incidents.length * 8, 90);
   if (incidents.length === 0) return null;
-
   return (
     <CircleMarker
       center={[zone.lat, zone.lng]}
@@ -119,21 +136,11 @@ function ZoneOverlay({ zoneStat }: { zoneStat: ZoneStat }) {
     >
       <Popup>
         <div style={{ minWidth: 200, fontFamily: "sans-serif" }}>
-          <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>
-            📍 Zona: {zone.name}
-          </p>
+          <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>📍 {zone.name}</p>
           <p style={{
-            padding: "3px 10px",
-            background: alert.bg,
-            color: alert.text,
-            borderRadius: 6,
-            display: "inline-block",
-            fontWeight: 700,
-            fontSize: 12,
-            marginBottom: 8,
-          }}>
-            {alert.label}
-          </p>
+            padding: "3px 10px", background: alert.bg, color: alert.text,
+            borderRadius: 6, display: "inline-block", fontWeight: 700, fontSize: 12, marginBottom: 8,
+          }}>{alert.label}</p>
           <p style={{ fontSize: 13 }}>🗂️ Incidencias: <strong>{incidents.length}</strong></p>
           <p style={{ fontSize: 13 }}>🔴 Críticas: <strong>{zoneStat.criticalCount}</strong></p>
           <p style={{ fontSize: 13 }}>📊 Nivel máx: <strong style={{ color: LEVEL_COLOR[zoneStat.maxLevel] }}>{zoneStat.maxLevel}</strong></p>
@@ -148,7 +155,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
-  const [activeAlert, setActiveAlert] = useState<ZoneStat | null>(null);
+  const [activeZone, setActiveZone] = useState<ZoneStat | null>(null);
+  const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number } | null>(null);
 
   const fetchIncidents = useCallback(async () => {
     const { data, error } = await supabase
@@ -156,7 +164,6 @@ export default function App() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(100);
-
     if (!error && data) {
       setIncidents(data);
       setLastUpdate(new Date());
@@ -174,7 +181,6 @@ export default function App() {
     return () => { clearInterval(interval); supabase.removeChannel(channel); };
   }, [fetchIncidents]);
 
-  // Calcular estadísticas por zona
   const zoneStats: ZoneStat[] = useMemo(() => {
     return ZONES.map((zone) => {
       const zoneIncidents = incidents.filter(
@@ -190,7 +196,6 @@ export default function App() {
     });
   }, [incidents]);
 
-  // Zonas en alerta (warning o superior)
   const alertZones = useMemo(
     () => zoneStats.filter((z) => z.alertLevel !== "normal" && z.incidents.length > 0),
     [zoneStats]
@@ -199,362 +204,341 @@ export default function App() {
   const stats = {
     total: incidents.length,
     critical: incidents.filter((i) => i.is_critical).length,
-    byType: incidents.reduce<Record<string, number>>((acc, i) => {
-      acc[i.waste_type] = (acc[i.waste_type] || 0) + 1;
-      return acc;
-    }, {}),
+    high: incidents.filter((i) => i.pollution_level === "ALTO").length,
+    alertZones: alertZones.length,
   };
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
+  const handleZoneClick = (zs: ZoneStat) => {
+    if (zs.incidents.length === 0) return;
+    const isSame = activeZone?.zone.name === zs.zone.name;
+    setActiveZone(isSame ? null : zs);
+    setSelectedIncident(null);
+    if (!isSame) {
+      setFlyTarget({ lat: zs.zone.lat, lng: zs.zone.lng });
+    }
+  };
+
   return (
-    <div style={styles.root}>
+    <div style={s.root}>
       {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.headerLeft}>
-          <span style={{ fontSize: 28 }}>🗺️</span>
+      <div style={s.header}>
+        <div style={s.headerLeft}>
+          <span style={{ fontSize: 24 }}>🗺️</span>
           <div>
-            <h1 style={styles.headerTitle}>Dashboard Ambiental — La Paz</h1>
-            <p style={styles.headerSub}>Sistema de Detección y Clasificación de Basura Urbana</p>
+            <h1 style={s.headerTitle}>Dashboard Ambiental — La Paz</h1>
+            <p style={s.headerSub}>Sistema de Detección y Clasificación de Basura Urbana</p>
           </div>
         </div>
-        <div style={styles.headerRight}>
-          <div style={styles.updateBadge}>🔄 {lastUpdate.toLocaleTimeString("es-BO")}</div>
+        <div style={s.headerRight}>
+          <div style={s.updateBadge}>🔄 {lastUpdate.toLocaleTimeString("es-BO")}</div>
           {stats.critical > 0 && (
-            <div style={styles.criticalBadge}>🚨 {stats.critical} CRÍTICO{stats.critical > 1 ? "S" : ""}</div>
+            <div style={s.criticalBadge}>🚨 {stats.critical} CRÍTICO{stats.critical > 1 ? "S" : ""}</div>
           )}
         </div>
       </div>
 
-      {/* Banners de alerta por zona */}
+      {/* Stats compactas */}
+      <div style={s.statsRow}>
+        {[
+          { icon: "📋", label: "Total", value: stats.total, color: "#3b82f6" },
+          { icon: "🔴", label: "Críticas", value: stats.critical, color: "#ef4444" },
+          { icon: "🟠", label: "Alto riesgo", value: stats.high, color: "#f97316" },
+          { icon: "⚠️", label: "Zonas alerta", value: stats.alertZones, color: "#f59e0b" },
+        ].map((st) => (
+          <div key={st.label} style={{ ...s.statCard, borderTop: `2px solid ${st.color}` }}>
+            <span style={{ fontSize: 16 }}>{st.icon}</span>
+            <span style={{ ...s.statValue, color: st.color }}>{st.value}</span>
+            <span style={s.statLabel}>{st.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Alertas de zonas — compactas */}
       {alertZones.length > 0 && (
-        <div style={styles.alertBannerContainer}>
+        <div style={s.alertStrip}>
           {alertZones.map((zs) => {
             const alert = ALERT_COLORS[zs.alertLevel];
             return (
               <div
                 key={zs.zone.name}
-                style={{
-                  ...styles.alertBanner,
-                  background: alert.bg,
-                  borderColor: alert.border,
-                  cursor: "pointer",
-                }}
-                onClick={() => setActiveAlert(activeAlert?.zone.name === zs.zone.name ? null : zs)}
+                style={{ ...s.alertChip, background: alert.bg, borderColor: alert.border, cursor: "pointer" }}
+                onClick={() => handleZoneClick(zs)}
               >
-                <span style={{ fontSize: 20 }}>{zs.alertLevel === "critical" ? "🚨" : zs.alertLevel === "danger" ? "🔶" : "⚠️"}</span>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontWeight: 700, color: alert.text }}>
-                    Zona {zs.zone.name}
-                  </span>
-                  <span style={{ color: "#94a3b8", fontSize: 13, marginLeft: 8 }}>
-                    {zs.incidents.length} incidencia{zs.incidents.length > 1 ? "s" : ""} · {zs.criticalCount} crítica{zs.criticalCount !== 1 ? "s" : ""}
-                  </span>
-                </div>
-                <span style={{
-                  padding: "2px 10px",
-                  borderRadius: 20,
-                  background: alert.border,
-                  color: "white",
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}>
-                  {alert.label}
+                <span style={{ color: alert.text, fontWeight: 700, fontSize: 12 }}>
+                  {zs.alertLevel === "critical" ? "🚨" : zs.alertLevel === "danger" ? "🔶" : "⚠️"} {zs.zone.name}
                 </span>
+                <span style={{ color: "#94a3b8", fontSize: 11 }}>{zs.incidents.length} reportes</span>
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Panel expandible de detalle de zona */}
-      {activeAlert && (
-        <div style={{
-          ...styles.zoneDetailPanel,
-          borderColor: ALERT_COLORS[activeAlert.alertLevel].border,
-        }}>
-          <div style={styles.zoneDetailHeader}>
-            <span style={{ fontWeight: 700, fontSize: 15, color: "#f1f5f9" }}>
-              📍 Detalle — Zona {activeAlert.zone.name}
-            </span>
-            <button onClick={() => setActiveAlert(null)} style={styles.closeBtn}>✕</button>
-          </div>
-          <div style={styles.zoneDetailGrid}>
-            {activeAlert.incidents.map((inc) => (
-              <div
-                key={inc.id}
-                style={{
-                  ...styles.zoneIncidentCard,
-                  borderLeft: `3px solid ${LEVEL_COLOR[inc.pollution_level]}`,
-                  cursor: "pointer",
-                }}
-                onClick={() => { setSelectedIncident(inc); setActiveAlert(null); }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "#94a3b8" }}>#{inc.id}</span>
-                  <span style={{
-                    padding: "1px 7px",
-                    borderRadius: 10,
-                    background: LEVEL_COLOR[inc.pollution_level],
-                    color: "white",
-                    fontSize: 10,
-                    fontWeight: 700,
-                  }}>
-                    {inc.pollution_level}
-                  </span>
-                </div>
-                <p style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", marginTop: 4 }}>{inc.waste_type}</p>
-                <p style={{ fontSize: 11, color: "#64748b" }}>{formatDate(inc.created_at)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Stats cards */}
-      <div style={styles.statsRow}>
-        <StatCard icon="📋" label="Total incidencias" value={stats.total} color="#3b82f6" />
-        <StatCard icon="🔴" label="Críticas" value={stats.critical} color="#ef4444" />
-        <StatCard icon="🟠" label="Alto riesgo" value={incidents.filter((i) => i.pollution_level === "ALTO").length} color="#f97316" />
-        <StatCard
-          icon="⚠️"
-          label="Zonas en alerta"
-          value={alertZones.length}
-          color="#f59e0b"
-        />
-      </div>
-
-      {/* Main layout */}
-      <div style={styles.mainLayout}>
-        {/* Mapa */}
-        <div style={styles.mapContainer}>
-          <div style={styles.sectionTitle}>📍 Mapa de Incidencias</div>
-          {loading ? (
-            <div style={styles.mapLoading}>Cargando mapa...</div>
-          ) : (
-            <MapContainer center={LA_PAZ_CENTER} zoom={13} style={{ height: "100%", width: "100%", borderRadius: 10 }}>
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='© <a href="https://openstreetmap.org">OpenStreetMap</a>'
-              />
-
-              {/* Círculos de zona (clustering visual) */}
-              {zoneStats.map((zs) => (
-                <ZoneOverlay key={zs.zone.name} zoneStat={zs} />
-              ))}
-
-              {/* Marcadores individuales */}
-              {incidents.map((incident) => (
-                <CircleMarker
-                  key={incident.id}
-                  center={[incident.latitude, incident.longitude]}
-                  radius={incident.is_critical ? 10 : 6}
-                  pathOptions={{
-                    fillColor: LEVEL_COLOR[incident.pollution_level],
-                    color: incident.is_critical ? "#fff" : LEVEL_COLOR[incident.pollution_level],
-                    weight: incident.is_critical ? 2 : 1,
-                    fillOpacity: 0.95,
-                  }}
-                  eventHandlers={{ click: () => setSelectedIncident(incident) }}
-                >
-                  <Popup>
-                    <div style={{ minWidth: 180 }}>
-                      <p><strong>{incident.waste_type}</strong></p>
-                      <p>Nivel: <strong>{incident.pollution_level}</strong></p>
-                      <p>Objetos: {incident.detected_objects}</p>
-                      <p style={{ fontSize: 11, color: "#666" }}>{formatDate(incident.created_at)}</p>
-                      {incident.image_url && (
-                        <a href={incident.image_url} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
-                          Ver imagen →
-                        </a>
-                      )}
-                    </div>
-                  </Popup>
-                </CircleMarker>
-              ))}
-            </MapContainer>
-          )}
-
-          {/* Leyenda */}
-          <div style={styles.legend}>
-            <span style={{ color: "#64748b", fontSize: 11, marginRight: 4 }}>Nivel:</span>
-            {Object.entries(LEVEL_COLOR).map(([level, color]) => (
-              <div key={level} style={styles.legendItem}>
-                <div style={{ ...styles.legendDot, background: color }} />
-                <span>{level}</span>
-              </div>
-            ))}
-            <span style={{ color: "#64748b", fontSize: 11, marginLeft: 12, marginRight: 4 }}>Zona:</span>
-            <div style={styles.legendItem}>
-              <div style={{ ...styles.legendDot, background: "#f59e0b", opacity: 0.4, width: 16, height: 16, borderRadius: "50%" }} />
-              <span>Acumulación</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Panel derecho */}
-        <div style={styles.rightPanel}>
-          {/* Resumen por zonas */}
-          <div style={styles.zonesPanel}>
-            <div style={styles.sectionTitle}>🗺️ Estado por Zona</div>
+      {/* Layout principal */}
+      <div style={s.mainLayout}>
+        {/* Panel izquierdo: zonas */}
+        <div style={s.zonesPanel}>
+          <div style={s.sectionTitle}>🗺️ Estado por Zona</div>
+          <div style={s.zonesList}>
             {ZONES.map((zone) => {
               const zs = zoneStats.find((z) => z.zone.name === zone.name)!;
               const alert = ALERT_COLORS[zs.alertLevel];
+              const isActive = activeZone?.zone.name === zone.name;
               return (
                 <div
                   key={zone.name}
                   style={{
-                    ...styles.zoneRow,
-                    borderLeft: `3px solid ${alert.border}`,
-                    background: zs.incidents.length > 0 ? alert.bg + "55" : "transparent",
+                    ...s.zoneRow,
+                    borderLeft: `3px solid ${isActive ? alert.border : (zs.incidents.length > 0 ? alert.border : "#334155")}`,
+                    background: isActive ? alert.bg + "99" : zs.incidents.length > 0 ? alert.bg + "44" : "transparent",
                     cursor: zs.incidents.length > 0 ? "pointer" : "default",
+                    outline: isActive ? `1px solid ${alert.border}` : "none",
                   }}
-                  onClick={() => zs.incidents.length > 0 && setActiveAlert(activeAlert?.zone.name === zone.name ? null : zs)}
+                  onClick={() => handleZoneClick(zs)}
                 >
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontWeight: 600, fontSize: 13, color: "#e2e8f0" }}>{zone.name}</span>
-                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                      {zs.incidents.length} incidencia{zs.incidents.length !== 1 ? "s" : ""}
-                      {zs.criticalCount > 0 && <span style={{ color: "#fca5a5", marginLeft: 6 }}>· {zs.criticalCount} crítica{zs.criticalCount !== 1 ? "s" : ""}</span>}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                    <span style={{
-                      padding: "2px 8px",
-                      borderRadius: 10,
-                      background: alert.border,
-                      color: "white",
-                      fontSize: 10,
-                      fontWeight: 700,
-                    }}>
-                      {alert.label}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontWeight: 600, fontSize: 12, color: "#e2e8f0", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {zone.name}
                     </span>
-                    {zs.incidents.length > 0 && (
-                      <span style={{ fontSize: 10, color: "#475569" }}>ver detalle →</span>
-                    )}
+                    <span style={{ fontSize: 11, color: "#64748b" }}>
+                      {zs.incidents.length} rep.
+                      {zs.criticalCount > 0 && <span style={{ color: "#fca5a5", marginLeft: 4 }}>· {zs.criticalCount}🔴</span>}
+                    </span>
                   </div>
+                  <span style={{
+                    padding: "1px 6px", borderRadius: 8,
+                    background: alert.border, color: "white",
+                    fontSize: 9, fontWeight: 700, flexShrink: 0,
+                  }}>
+                    {alert.label.replace("⚠️ ", "").replace("🔶 ", "").replace("🚨 ", "")}
+                  </span>
                 </div>
               );
             })}
           </div>
+        </div>
 
-          {/* Detalle incidencia seleccionada */}
-          {selectedIncident && (
-            <div style={styles.detailCard}>
-              <div style={styles.sectionTitle}>🔍 Incidencia #{selectedIncident.id}</div>
-              <div style={{ background: LEVEL_BG[selectedIncident.pollution_level], padding: "8px 12px", borderRadius: 8, marginBottom: 10, display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#e2e8f0" }}>{selectedIncident.waste_type}</span>
-                <span style={{ fontWeight: 700, color: LEVEL_COLOR[selectedIncident.pollution_level] }}>{selectedIncident.pollution_level}</span>
+        {/* Centro: mapa + detalle abajo */}
+        <div style={s.centerCol}>
+          <div style={s.mapWrapper}>
+            <div style={s.sectionTitle}>📍 Mapa de Incidencias</div>
+            {loading ? (
+              <div style={s.mapLoading}>Cargando mapa...</div>
+            ) : (
+              <MapContainer center={LA_PAZ_CENTER} zoom={13} style={{ height: "100%", width: "100%", borderRadius: 8 }}>
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='© <a href="https://openstreetmap.org">OpenStreetMap</a>'
+                />
+                <MapController flyTarget={flyTarget} />
+                {zoneStats.map((zs) => (
+                  <ZoneOverlay key={zs.zone.name} zoneStat={zs} />
+                ))}
+                {incidents.map((incident) => (
+                  <CircleMarker
+                    key={incident.id}
+                    center={[incident.latitude, incident.longitude]}
+                    radius={incident.is_critical ? 9 : 5}
+                    pathOptions={{
+                      fillColor: LEVEL_COLOR[incident.pollution_level],
+                      color: incident.is_critical ? "#fff" : LEVEL_COLOR[incident.pollution_level],
+                      weight: incident.is_critical ? 2 : 1,
+                      fillOpacity: 0.95,
+                    }}
+                    eventHandlers={{ click: () => { setSelectedIncident(incident); setActiveZone(null); } }}
+                  >
+                    <Popup>
+                      <div style={{ minWidth: 180 }}>
+                        <p><strong>{incident.waste_type}</strong></p>
+                        <p>Nivel: <strong>{incident.pollution_level}</strong></p>
+                        <p>Objetos: {incident.detected_objects}</p>
+                        <p style={{ fontSize: 11, color: "#666" }}>{formatDate(incident.created_at)}</p>
+                        {incident.image_url && (
+                          <a href={incident.image_url} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>Ver imagen →</a>
+                        )}
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                ))}
+              </MapContainer>
+            )}
+            {/* Leyenda */}
+            <div style={s.legend}>
+              <span style={{ color: "#64748b", fontSize: 10, marginRight: 4 }}>Nivel:</span>
+              {Object.entries(LEVEL_COLOR).map(([level, color]) => (
+                <div key={level} style={s.legendItem}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: color }} />
+                  <span style={{ fontSize: 10 }}>{level}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Detalle zona — DEBAJO del mapa */}
+          {activeZone && (
+            <div style={{ ...s.detailPanel, borderColor: ALERT_COLORS[activeZone.alertLevel].border }}>
+              <div style={s.detailPanelHeader}>
+                <span style={{ fontWeight: 700, color: "#f1f5f9", fontSize: 14 }}>
+                  📍 {activeZone.zone.name} — {activeZone.incidents.length} incidencia{activeZone.incidents.length !== 1 ? "s" : ""}
+                </span>
+                <button onClick={() => setActiveZone(null)} style={s.closeBtn}>✕</button>
               </div>
-              <p style={styles.detailRow}>🔍 Objetos: <strong>{selectedIncident.detected_objects}</strong></p>
-              <p style={styles.detailRow}>📍 {selectedIncident.latitude.toFixed(4)}, {selectedIncident.longitude.toFixed(4)}</p>
-              <p style={styles.detailRow}>🕐 {formatDate(selectedIncident.created_at)}</p>
-              <div style={{ marginTop: 8 }}>
-                {selectedIncident.keywords?.map((kw) => (
-                  <span key={kw} style={styles.tag}>{kw}</span>
+              <div style={s.detailGrid}>
+                {activeZone.incidents.map((inc) => (
+                  <div
+                    key={inc.id}
+                    style={{ ...s.incCard, borderLeft: `3px solid ${LEVEL_COLOR[inc.pollution_level]}`, cursor: "pointer" }}
+                    onClick={() => { setSelectedIncident(inc); setActiveZone(null); }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, color: "#94a3b8" }}>#{inc.id}</span>
+                      <span style={{
+                        padding: "1px 6px", borderRadius: 8,
+                        background: LEVEL_COLOR[inc.pollution_level],
+                        color: "white", fontSize: 10, fontWeight: 700,
+                      }}>{inc.pollution_level}</span>
+                    </div>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0" }}>{inc.waste_type}</p>
+                    <p style={{ fontSize: 11, color: "#64748b" }}>{formatDate(inc.created_at)}</p>
+                  </div>
                 ))}
               </div>
-              <button onClick={() => setSelectedIncident(null)} style={styles.closeBtn}>Cerrar ✕</button>
             </div>
           )}
 
-          {/* Tabla */}
-          <div style={styles.tableContainer}>
-            <div style={styles.sectionTitle}>📋 Últimas Incidencias ({incidents.length})</div>
-            {loading ? (
-              <p style={{ color: "#64748b", padding: 12 }}>Cargando...</p>
-            ) : incidents.length === 0 ? (
-              <p style={{ color: "#64748b", padding: 12 }}>Sin incidencias aún.</p>
-            ) : (
-              <div style={styles.tableWrapper}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>#</th>
-                      <th style={styles.th}>Tipo</th>
-                      <th style={styles.th}>Nivel</th>
-                      <th style={styles.th}>Obj.</th>
-                      <th style={styles.th}>Fecha</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {incidents.map((incident) => (
-                      <tr
-                        key={incident.id}
-                        style={{ ...styles.tr, background: incident.is_critical ? "rgba(239,68,68,0.1)" : "transparent", cursor: "pointer" }}
-                        onClick={() => setSelectedIncident(incident)}
-                      >
-                        <td style={styles.td}>{incident.id}</td>
-                        <td style={styles.td}><span style={{ fontSize: 11 }}>{incident.waste_type}</span></td>
-                        <td style={styles.td}>
-                          <span style={{ padding: "2px 8px", borderRadius: 12, background: LEVEL_COLOR[incident.pollution_level], color: "white", fontSize: 11, fontWeight: 700 }}>
-                            {incident.pollution_level}
-                          </span>
-                        </td>
-                        <td style={styles.td}>{incident.detected_objects}</td>
-                        <td style={styles.td}><span style={{ fontSize: 11 }}>{formatDate(incident.created_at)}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* Detalle incidencia individual — DEBAJO del mapa */}
+          {selectedIncident && (
+            <div style={{ ...s.detailPanel, borderColor: LEVEL_COLOR[selectedIncident.pollution_level] }}>
+              <div style={s.detailPanelHeader}>
+                <span style={{ fontWeight: 700, color: "#f1f5f9", fontSize: 14 }}>
+                  🔍 Incidencia #{selectedIncident.id}
+                </span>
+                <button onClick={() => setSelectedIncident(null)} style={s.closeBtn}>✕</button>
               </div>
-            )}
-          </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, padding: "0 4px 4px" }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", width: "100%" }}>
+                  {[
+                    { label: "Tipo", value: selectedIncident.waste_type },
+                    { label: "Nivel", value: selectedIncident.pollution_level, color: LEVEL_COLOR[selectedIncident.pollution_level] },
+                    { label: "Objetos", value: `${selectedIncident.detected_objects}` },
+                    { label: "Coords", value: `${selectedIncident.latitude.toFixed(3)}, ${selectedIncident.longitude.toFixed(3)}` },
+                    { label: "Fecha", value: formatDate(selectedIncident.created_at) },
+                  ].map((item) => (
+                    <div key={item.label} style={s.infoChip}>
+                      <span style={{ fontSize: 10, color: "#64748b" }}>{item.label}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: item.color || "#e2e8f0" }}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {selectedIncident.keywords?.map((kw) => (
+                    <span key={kw} style={s.tag}>{kw}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Panel derecho: tabla */}
+        <div style={s.tablePanel}>
+          <div style={s.sectionTitle}>📋 Últimas incidencias</div>
+          {loading ? (
+            <p style={{ color: "#64748b", fontSize: 13, padding: 8 }}>Cargando...</p>
+          ) : incidents.length === 0 ? (
+            <p style={{ color: "#64748b", fontSize: 13, padding: 8 }}>Sin incidencias.</p>
+          ) : (
+            <div style={s.tableWrapper}>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    {["#", "Tipo", "Nivel", "Obj", "Fecha"].map((h) => (
+                      <th key={h} style={s.th}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {incidents.map((inc) => (
+                    <tr
+                      key={inc.id}
+                      style={{ ...s.tr, background: inc.is_critical ? "rgba(239,68,68,0.1)" : "transparent", cursor: "pointer" }}
+                      onClick={() => { setSelectedIncident(inc); setActiveZone(null); setFlyTarget({ lat: inc.latitude, lng: inc.longitude }); }}
+                    >
+                      <td style={s.td}>{inc.id}</td>
+                      <td style={{ ...s.td, fontSize: 11 }}>{inc.waste_type}</td>
+                      <td style={s.td}>
+                        <span style={{ padding: "1px 6px", borderRadius: 10, background: LEVEL_COLOR[inc.pollution_level], color: "white", fontSize: 10, fontWeight: 700 }}>
+                          {inc.pollution_level}
+                        </span>
+                      </td>
+                      <td style={s.td}>{inc.detected_objects}</td>
+                      <td style={{ ...s.td, fontSize: 10 }}>{formatDate(inc.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function StatCard({ icon, label, value, color, small }: { icon: string; label: string; value: string | number; color: string; small?: boolean }) {
-  return (
-    <div style={{ ...styles.statCard, borderTop: `3px solid ${color}` }}>
-      <div style={styles.statIcon}>{icon}</div>
-      <div style={{ ...styles.statValue, color, fontSize: small ? 16 : 28 }}>{value}</div>
-      <div style={styles.statLabel}>{label}</div>
-    </div>
-  );
-}
+const s: Record<string, React.CSSProperties> = {
+  root: { display: "flex", flexDirection: "column", minHeight: "100vh", background: "#0f172a", padding: "12px", gap: 10, fontFamily: "Segoe UI, sans-serif" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", background: "#1e293b", padding: "10px 16px", borderRadius: 10, flexWrap: "wrap", gap: 8 },
+  headerLeft: { display: "flex", alignItems: "center", gap: 10 },
+  headerTitle: { fontSize: 16, fontWeight: 700, color: "#f1f5f9", margin: 0 },
+  headerSub: { fontSize: 11, color: "#94a3b8", margin: 0 },
+  headerRight: { display: "flex", alignItems: "center", gap: 8 },
+  updateBadge: { background: "#1e3a5f", color: "#60a5fa", padding: "4px 10px", borderRadius: 6, fontSize: 11 },
+  criticalBadge: { background: "#7f1d1d", color: "#fca5a5", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700 },
 
-const styles: Record<string, React.CSSProperties> = {
-  root: { display: "flex", flexDirection: "column", minHeight: "100vh", background: "#0f172a", padding: "16px", gap: 12 },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", background: "#1e293b", padding: "14px 20px", borderRadius: 12, flexWrap: "wrap", gap: 12 },
-  headerLeft: { display: "flex", alignItems: "center", gap: 14 },
-  headerTitle: { fontSize: 18, fontWeight: 700, color: "#f1f5f9" },
-  headerSub: { fontSize: 13, color: "#94a3b8" },
-  headerRight: { display: "flex", alignItems: "center", gap: 10 },
-  updateBadge: { background: "#1e3a5f", color: "#60a5fa", padding: "6px 12px", borderRadius: 8, fontSize: 13 },
-  criticalBadge: { background: "#7f1d1d", color: "#fca5a5", padding: "6px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700 },
-  alertBannerContainer: { display: "flex", flexDirection: "column", gap: 6 },
-  alertBanner: { display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderRadius: 10, border: "1px solid", transition: "opacity 0.2s" },
-  zoneDetailPanel: { background: "#1e293b", borderRadius: 12, padding: 16, border: "1px solid" },
-  zoneDetailHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  zoneDetailGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 },
-  zoneIncidentCard: { background: "#0f172a", borderRadius: 8, padding: "10px 12px" },
-  statsRow: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 },
-  statCard: { background: "#1e293b", borderRadius: 10, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 4 },
-  statIcon: { fontSize: 20 },
-  statValue: { fontWeight: 800, lineHeight: 1.1 },
-  statLabel: { fontSize: 12, color: "#64748b" },
-  mainLayout: { display: "grid", gridTemplateColumns: "1fr 380px", gap: 16, flex: 1, minHeight: 520 },
-  mapContainer: { background: "#1e293b", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 10, minHeight: 520 },
+  statsRow: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 },
+  statCard: { background: "#1e293b", borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 },
+  statValue: { fontWeight: 800, fontSize: 18 },
+  statLabel: { fontSize: 11, color: "#64748b" },
+
+  alertStrip: { display: "flex", flexWrap: "wrap", gap: 6 },
+  alertChip: { display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", borderRadius: 8, border: "1px solid", transition: "opacity 0.2s" },
+
+  mainLayout: {
+    display: "grid",
+    gridTemplateColumns: "200px 1fr 260px",
+    gap: 12,
+    flex: 1,
+    minHeight: 0,
+    alignItems: "start",
+  },
+
+  zonesPanel: { background: "#1e293b", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 0 },
+  zonesList: { overflowY: "auto", maxHeight: "calc(100vh - 220px)", display: "flex", flexDirection: "column", gap: 3 },
+  zoneRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", borderRadius: 6, transition: "background 0.15s" },
+
+  centerCol: { display: "flex", flexDirection: "column", gap: 10, minHeight: 0 },
+  mapWrapper: { background: "#1e293b", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8, height: 480 },
   mapLoading: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" },
-  legend: { display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, color: "#94a3b8", alignItems: "center" },
-  legendItem: { display: "flex", alignItems: "center", gap: 6 },
-  legendDot: { width: 12, height: 12, borderRadius: "50%" },
-  rightPanel: { display: "flex", flexDirection: "column", gap: 12, overflow: "auto", maxHeight: "calc(100vh - 240px)" },
-  zonesPanel: { background: "#1e293b", borderRadius: 12, padding: 16 },
-  zoneRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 8, marginBottom: 6, transition: "background 0.2s" },
-  detailCard: { background: "#1e293b", borderRadius: 12, padding: 16 },
-  detailRow: { fontSize: 13, marginBottom: 6, color: "#cbd5e1" },
-  tag: { display: "inline-block", padding: "2px 8px", background: "#1e3a5f", color: "#60a5fa", borderRadius: 12, fontSize: 11, marginRight: 4, marginBottom: 4 },
-  closeBtn: { marginTop: 10, background: "transparent", border: "1px solid #475569", color: "#94a3b8", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontSize: 12 },
-  tableContainer: { background: "#1e293b", borderRadius: 12, padding: 16, overflow: "hidden" },
-  tableWrapper: { overflowY: "auto", maxHeight: 280 },
-  sectionTitle: { fontWeight: 700, fontSize: 14, color: "#94a3b8", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" },
-  table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
-  th: { padding: "6px 8px", textAlign: "left", color: "#475569", borderBottom: "1px solid #334155", fontSize: 11, textTransform: "uppercase" },
+  legend: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" },
+  legendItem: { display: "flex", alignItems: "center", gap: 4 },
+
+  detailPanel: { background: "#1e293b", borderRadius: 10, padding: 12, border: "1px solid" },
+  detailPanelHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  detailGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 6 },
+  incCard: { background: "#0f172a", borderRadius: 6, padding: "8px 10px" },
+  infoChip: { background: "#0f172a", borderRadius: 6, padding: "6px 10px", display: "flex", flexDirection: "column", gap: 2, minWidth: 80 },
+
+  tablePanel: { background: "#1e293b", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 0 },
+  tableWrapper: { overflowY: "auto", maxHeight: "calc(100vh - 220px)" },
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 12 },
+  th: { padding: "5px 6px", textAlign: "left", color: "#475569", borderBottom: "1px solid #334155", fontSize: 10, textTransform: "uppercase", position: "sticky", top: 0, background: "#1e293b" },
   tr: { borderBottom: "1px solid #1e293b", transition: "background 0.15s" },
-  td: { padding: "8px", color: "#cbd5e1" },
+  td: { padding: "6px", color: "#cbd5e1" },
+
+  tag: { display: "inline-block", padding: "2px 7px", background: "#1e3a5f", color: "#60a5fa", borderRadius: 10, fontSize: 11 },
+  closeBtn: { background: "transparent", border: "1px solid #475569", color: "#94a3b8", borderRadius: 5, padding: "3px 8px", cursor: "pointer", fontSize: 11 },
+  sectionTitle: { fontWeight: 700, fontSize: 11, color: "#64748b", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" },
 };
