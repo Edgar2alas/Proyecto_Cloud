@@ -97,13 +97,15 @@ export async function POST(request: NextRequest) {
     let lat = parseFloat(latParam || "");
     let lng = parseFloat(lngParam || "");
 
-  if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+  console.log(`[GEOLOCACIÓN] latParam raw: "${latParam}" | lngParam raw: "${lngParam}"`);
+
+  if (latParam && lngParam && !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+    console.log(`[GEOLOCACIÓN] ✓ Coordenadas reales recibidas: ${lat}, ${lng}`);
+  } else {
     const randomLocation = LA_PAZ_LOCATIONS[Math.floor(Math.random() * LA_PAZ_LOCATIONS.length)];
     lat = randomLocation.lat;
     lng = randomLocation.lng;
-    console.log(`[GEOLOCACIÓN] ⚠️ Sin coordenadas del frontend — usando demo: ${randomLocation.name}`);
-  } else {
-    console.log(`[GEOLOCACIÓN] ✓ Coordenadas reales recibidas del usuario: ${lat}, ${lng}`);
+    console.log(`[GEOLOCACIÓN] ⚠️ Sin coordenadas válidas — usando demo: ${randomLocation.name}`);
   }
 
     // 7. Insertar en Supabase
