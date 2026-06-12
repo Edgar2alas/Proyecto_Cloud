@@ -42,7 +42,9 @@ export async function POST(request: NextRequest) {
 
     // 3. Subir a Google Cloud Storage
     console.log("[GCS] Subiendo imagen al bucket...");
-    const storage = new Storage();
+    const storage = new Storage({
+      credentials: JSON.parse(process.env.GCP_CREDENTIALS_JSON!),
+    });
     const bucketName = process.env.GCS_BUCKET_NAME || "la-paz-waste-images";
     const bucket = storage.bucket(bucketName);
     const fileName = `${Date.now()}_${imageFile.name.replace(/\s/g, "_")}`;
@@ -57,7 +59,9 @@ export async function POST(request: NextRequest) {
 
     // 4. Llamar a Cloud Vision API
     console.log("[VISION] Enviando imagen a Cloud Vision API...");
-    const visionClient = new ImageAnnotatorClient();
+    const visionClient = new ImageAnnotatorClient({
+      credentials: JSON.parse(process.env.GCP_CREDENTIALS_JSON!),
+    });
     const [visionResult] = await visionClient.annotateImage({
       image: { content: buffer.toString("base64") },
       features: [
