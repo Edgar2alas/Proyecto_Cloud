@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from "react";
 
-const BACKEND_URL = "https://backendCloud.vercel.app";
+const BACKEND_URL = "https://backendcloud-chi.vercel.app/";
 
 type PollutionLevel = "BAJO" | "MEDIO" | "ALTO" | "CRÍTICO";
 
