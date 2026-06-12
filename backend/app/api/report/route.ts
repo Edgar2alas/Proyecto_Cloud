@@ -5,6 +5,13 @@ import { ImageAnnotatorClient } from "@google-cloud/vision";
 import { classifyIncident, VisionResponse } from "@/lib/clasificador";
 import { supabaseAdmin } from "@/lib/supabase";
 
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "https://proyecto-cloud-pi.vercel.app",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 // Coordenadas predefinidas de zonas conocidas de La Paz para la demo
 const LA_PAZ_LOCATIONS = [
   { name: "El Prado", lat: -16.495, lng: -68.133 },
@@ -14,6 +21,16 @@ const LA_PAZ_LOCATIONS = [
   { name: "Sopocachi", lat: -16.51, lng: -68.13 },
 ];
 
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "https://proyecto-cloud-pi.vercel.app",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
+}
 
 export async function POST(request: NextRequest) {
   console.log("\n========================================");
@@ -28,10 +45,7 @@ export async function POST(request: NextRequest) {
     const lngParam = formData.get("lng") as string | null;
 
     if (!imageFile) {
-      return NextResponse.json(
-        { error: "No se recibió imagen." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No se recibió imagen." }, { status: 400, headers: CORS_HEADERS });
     }
 
     console.log(`[BACKEND] Imagen recibida: ${imageFile.name} (${imageFile.size} bytes)`);
@@ -167,14 +181,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("[BACKEND] ❌ Error:", error);
-    return NextResponse.json(
-      {
-        error: "Error procesando la incidencia.",
-        details: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error procesando..." }, { status: 500, headers: CORS_HEADERS });
   }
 }
+
+
 
 export const maxDuration = 30;
