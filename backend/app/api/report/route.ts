@@ -177,7 +177,4 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Configurar el límite de tamaño del body para imágenes
-export const config = {
-  api: { bodyParser: false },
-};
+export const maxDuration = 30;
