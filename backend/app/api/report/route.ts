@@ -4,10 +4,7 @@ import { Storage } from "@google-cloud/storage";
 import { ImageAnnotatorClient } from "@google-cloud/vision";
 import { classifyIncident, VisionResponse } from "@/lib/clasificador";
 import { supabaseAdmin } from "@/lib/supabase";
-const gcpCredentials = JSON.parse(process.env.GCP_CREDENTIALS_JSON!);
 
-const storage = new Storage({ credentials: gcpCredentials });
-const visionClient = new ImageAnnotatorClient({ credentials: gcpCredentials });
 // Coordenadas predefinidas de zonas conocidas de La Paz para la demo
 const LA_PAZ_LOCATIONS = [
   { name: "El Prado", lat: -16.495, lng: -68.133 },
